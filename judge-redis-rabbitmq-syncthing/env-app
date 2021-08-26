@@ -1,0 +1,4 @@
+SYZOJ_JUDGE_WEB_URL=https://your-oj-domain.org
+
+# Secrets
+SYZOJ_WEB_SECRET_JUDGE=32131231231233

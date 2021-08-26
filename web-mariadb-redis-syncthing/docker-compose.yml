@@ -1,0 +1,80 @@
+# Components:
+# - SYZOJ Web
+# - MariaDB
+# - Redis
+# - Syncthing
+#
+# Recommended for:
+# - Web on VPS
+# - Judge on self-hosted machine or VM (sync testdata with Syncthing)
+#
+# Notes:
+# - MariaDB root password is empty (but root login only permitted inside container)
+# - Redis persistent is not enabled
+# - Syncthing's GUI management will listen on http://127.0.0.1:8384 by default,
+#   the testdata directory in Syncthing is /uploads/testdata
+services:
+  web:
+    image: menci/syzoj-web
+    restart: unless-stopped
+    ports:
+      - "${SYZOJ_WEB_LISTEN:-127.0.0.1:5283}:80"
+    tmpfs:
+      - /app/sessions
+    volumes:
+      - config:/app/config
+      - uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: env-app
+    environment:
+      - SYZOJ_WEB_LISTEN_HOSTNAME=0.0.0.0
+      - SYZOJ_WEB_LISTEN_PORT=80
+      - SYZOJ_WEB_DB_HOST=mariadb
+      - SYZOJ_WEB_DB_DATABASE=syzoj
+      - SYZOJ_WEB_DB_USERNAME=syzoj
+      - SYZOJ_WEB_DB_PASSWORD=syzoj
+      - SYZOJ_WEB_REDIS_URI=redis://redis:6379
+  mariadb:
+    image: mariadb
+    restart: unless-stopped
+    volumes:
+      - database:/var/lib/mysql
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - MYSQL_ROOT_HOST=localhost
+      - MYSQL_DATABASE=syzoj
+      - MYSQL_USER=syzoj
+      - MYSQL_PASSWORD=syzoj
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 5
+  redis:
+    image: redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 5
+  syncthing:
+    image: syncthing/syncthing
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - uploads:/uploads
+      - config:/config
+    environment:
+      - PUID=0
+      - PGID=0
+      - STGUIADDRESS=${SYNCTHING_GUI_LISTEN:-127.0.0.1:8384}
+    entrypoint: ["/bin/entrypoint.sh", "/bin/syncthing", "-home", "/config/syncthing"]
+volumes:
+  config:
+  uploads:
+  database:

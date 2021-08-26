@@ -1,0 +1,83 @@
+# Components:
+# - SYZOJ Judge
+# - Redis
+# - RabbitMQ
+# - Syncthing
+#
+# Recommended for:
+# - Web on VPS
+# - Judge on self-hosted machine or VM (sync testdata with Syncthing)
+#
+# Notes:
+# - RabbitMQ persistent are not enabled
+# - Only one runner is configured in this configuration, but you can copy and replace 1 to 2 to add more
+# - Syncthing's GUI management will listen on http://127.0.0.1:8384 by default,
+#   the testdata directory in Syncthing is /testdata
+services:
+  redis:
+    image: redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 5
+  judge-daemon:
+    image: menci/syzoj-judge
+    restart: unless-stopped
+    volumes:
+      - config:/app/config
+      - testdata:/app/testdata
+    depends_on:
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    env_file: env-app
+    environment:
+      - SYZOJ_JUDGE_RABBITMQ_URI=amqp://rabbitmq/
+      - SYZOJ_JUDGE_TESTDATA_PATH=/app/testdata
+      - SYZOJ_JUDGE_REDIS_URI=redis://redis:6379
+    command: daemon
+  rabbitmq:
+    image: rabbitmq:3
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 5
+  syncthing:
+    image: syncthing/syncthing
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - testdata:/testdata
+      - config:/config
+    environment:
+      - PUID=0
+      - PGID=0
+      - STGUIADDRESS=${SYNCTHING_GUI_LISTEN:-127.0.0.1:8384}
+    entrypoint: ["/bin/entrypoint.sh", "/bin/syncthing", "-home", "/config/syncthing"]
+  judge-runner-1:
+    image: menci/syzoj-judge
+    restart: unless-stopped
+    privileged: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - config:/app/config
+      - testdata:/app/testdata
+    depends_on:
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      - SYZOJ_JUDGE_RABBITMQ_URI=amqp://rabbitmq/
+      - SYZOJ_JUDGE_TESTDATA_PATH=/app/testdata
+      - SYZOJ_JUDGE_REDIS_URI=redis://redis:6379
+      - SYZOJ_JUDGE_RUNNER_INSTANCE=1
+      - SYZOJ_JUDGE_CGROUP=judge-runner-1
+    command: runner
+volumes:
+  config:
+  testdata:

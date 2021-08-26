@@ -1,0 +1,57 @@
+# Components:
+# - SYZOJ Web
+# - Redis
+# - Syncthing
+#
+# Recommended for:
+# - Web on cloud VM
+# - Database on cloud MariaDB service
+# - Judge on remote machine (sync testdata with Syncthing)
+#
+# Notes:
+# - Redis persistent is not enabled
+# - Syncthing's GUI management will listen on http://127.0.0.1:8384 by default,
+#   the testdata directory in Syncthing is /uploads/testdata
+services:
+  web:
+    image: menci/syzoj-web
+    ports:
+      - "${SYZOJ_WEB_LISTEN:-127.0.0.1:5283}:80"
+    tmpfs:
+      - /app/sessions
+    volumes:
+      - config:/app/config
+      - uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    env_file: env-app
+    environment:
+      - SYZOJ_WEB_LISTEN_HOSTNAME=0.0.0.0
+      - SYZOJ_WEB_LISTEN_PORT=80
+      - SYZOJ_WEB_REDIS_URI=redis://redis:6379
+  redis:
+    image: redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      start_period: 10s
+      interval: 5s
+      timeout: 1s
+      retries: 5
+  syncthing:
+    image: syncthing/syncthing
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - uploads:/uploads
+      - config:/config
+    environment:
+      - PUID=0
+      - PGID=0
+      - STGUIADDRESS=${SYNCTHING_GUI_LISTEN:-127.0.0.1:8384}
+    entrypoint: ["/bin/entrypoint.sh", "/bin/syncthing", "-home", "/config/syncthing"]
+volumes:
+  config:
+  uploads:
