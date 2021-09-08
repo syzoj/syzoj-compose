@@ -24,9 +24,6 @@ services:
     volumes:
       - config:/app/config
       - uploads:/app/uploads
-    depends_on:
-      redis:
-        condition: service_healthy
     env_file: env-app
     environment:
       - SYZOJ_WEB_LISTEN_HOSTNAME=0.0.0.0
@@ -35,7 +32,6 @@ services:
       - SYZOJ_WEB_DB_DATABASE=syzoj
       - SYZOJ_WEB_DB_USERNAME=syzoj
       - SYZOJ_WEB_DB_PASSWORD=syzoj
-      - SYZOJ_WEB_REDIS_URI=redis://redis:6379
   mariadb:
     image: mariadb
     restart: unless-stopped

@@ -1,7 +1,6 @@
 # Components:
 # - SYZOJ Web
 # - MariaDB
-# - Redis
 # - Syncthing
 #
 # Recommended for:
@@ -10,7 +9,6 @@
 #
 # Notes:
 # - MariaDB root password is empty (but root login only permitted inside container)
-# - Redis persistent is not enabled
 # - Syncthing's GUI management will listen on http://127.0.0.1:8384 by default,
 #   the testdata directory in Syncthing is /uploads/testdata
 services:
@@ -24,9 +22,6 @@ services:
     volumes:
       - config:/app/config
       - uploads:/app/uploads
-    depends_on:
-      redis:
-        condition: service_healthy
     env_file: env-app
     environment:
       - SYZOJ_WEB_LISTEN_HOSTNAME=0.0.0.0
@@ -35,7 +30,6 @@ services:
       - SYZOJ_WEB_DB_DATABASE=syzoj
       - SYZOJ_WEB_DB_USERNAME=syzoj
       - SYZOJ_WEB_DB_PASSWORD=syzoj
-      - SYZOJ_WEB_REDIS_URI=redis://redis:6379
   mariadb:
     image: mariadb
     restart: unless-stopped
@@ -49,15 +43,6 @@ services:
       - MYSQL_PASSWORD=syzoj
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      start_period: 10s
-      interval: 5s
-      timeout: 1s
-      retries: 5
-  redis:
-    image: redis
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "PING"]
       start_period: 10s
       interval: 5s
       timeout: 1s
